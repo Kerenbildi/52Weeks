@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Little Gestures, Lasting Love</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --linen:#E4E0D8;
+    --linen-deep:#D6D1C5;
+    --spine-line:#B9B4A6;
+    --page:#FFFFFF;
+    --ink:#2E2B25;
+    --ink-soft:#6B6658;
+    --rose:#A8766B;
+    --gold:#B6986B;
+    --shadow: rgba(40,35,25,0.28);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100vh;
+    background: linear-gradient(180deg, #ECE9E2 0%, #DCD7CB 100%);
+    font-family: 'Cormorant Garamond', serif;
+    display:flex; align-items:center; justify-content:center;
+    overflow-x:hidden;
+  }
+  .stage{
+    width:100%; max-width:600px; padding:32px 24px;
+    display:flex; flex-direction:column; align-items:center;
+    box-sizing:border-box;
+  }
+  .book-wrap{
+    position:relative;
+    width: min(420px, calc(100vw - 64px));
+    height: min(560px, calc((100vw - 64px) * 4 / 3), 78vh);
+    flex-shrink:0;
+  }
+
+  /* ===== COVER — flat linen album, matches reference exactly ===== */
+  .cover{
+    position:absolute; inset:0; border-radius:2px;
+    background:
+      repeating-linear-gradient(91deg, rgba(0,0,0,0.018) 0px, transparent 1px, transparent 2px),
+      repeating-linear-gradient(1deg, rgba(255,255,255,0.05) 0px, transparent 1px, transparent 2px),
+      var(--linen);
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    z-index:20;
+    transform-origin: left center;
+    transition: transform 1.1s cubic-bezier(.65,.05,.36,1), box-shadow 1.1s ease;
+    box-shadow: 0 24px 60px var(--shadow);
+    cursor:pointer;
+    padding: 56px 40px;
+    backface-visibility: hidden;
+  }
+  .cover.opened{
+    transform: rotateY(-179.9deg);
+    box-shadow: 0 24px 60px transparent;
+    pointer-events:none;
+  }
+  .cover-spine-line{
+    position:absolute; left:38px; top:0; bottom:0; width:1px;
+    background: var(--spine-line);
+  }
+  .cover-title{
+    font-size:15px; color:var(--ink-soft); letter-spacing:2.8px; text-transform:uppercase;
+    text-align:center; line-height:1.7; margin-top:8px;
+  }
+  .cover-year{
+    font-size:13px; color:var(--ink-soft); letter-spacing:1.5px; opacity:0.75;
+    margin-bottom:4px;
+  }
+
+  /* ===== PAGES ===== */
+  .pages-base{
+    position:absolute; inset:0; border-radius:2px;
+    background: var(--page);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+  }
+  .page-content{
+    position:absolute; inset:0; border-radius:2px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:50px 40px; text-align:center;
+    background: var(--page);
+  }
+  .page-week{
+    font-size:13px; color:var(--ink-soft); letter-spacing:3px; text-transform:uppercase;
+    margin-bottom:26px; opacity:0.7;
+  }
+  .page-idea{
+    font-size:17px; line-height:2; color:var(--ink-soft); font-weight:500;
+    letter-spacing:2.2px; text-transform:uppercase;
+    max-width:380px;
+  }
+  .page-divider{
+    width:30px; height:1px; background:var(--rose); opacity:0.5; margin:26px auto;
+  }
+  .page-footer{
+    position:absolute; bottom:36px; left:0; right:0;
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+  }
+  .skip-link{
+    font-size:14px; font-style:italic; color:var(--ink-soft);
+    background:none; border:none; cursor:pointer;
+    border-bottom:1px solid rgba(107,102,88,0.3);
+    letter-spacing:0.3px; padding:4px 2px; transition: color 0.2s, border-color 0.2s;
+  }
+  .skip-link:hover{ color:var(--rose); border-bottom-color:var(--rose); }
+  .choose-link{
+    font-size:13px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg, var(--gold) 0%, #97794F 100%);
+    border:none; cursor:pointer; border-radius:2px;
+    padding:11px 28px; transition: opacity 0.2s, transform 0.15s;
+    box-shadow:0 3px 10px rgba(151,121,79,0.35);
+  }
+  .choose-link:hover{ opacity:0.92; transform:translateY(-1px); }
+  .choose-link:disabled{ opacity:0.65; cursor:default; transform:none; }
+  .page-number{
+    font-size:12px; color:var(--ink-soft); letter-spacing:1.5px; opacity:0.55;
+  }
+
+  /* ===== CURVED PAGE TURN — sliced into strips that bow outward mid-turn ===== */
+  /* The turning page is divided into vertical strips. Each strip rotates
+     around the spine by a slightly different amount (driven by JS using a
+     sine-based curve), so the page bows outward like real paper instead of
+     swinging as one flat rigid plane. */
+  .leaf{
+    position:absolute; inset:0; border-radius:2px;
+    z-index:16; pointer-events:none;
+    perspective: 1800px;
+    opacity:0;
+    filter: blur(0px);
+  }
+  .leaf.turning{
+    opacity:1;
+    pointer-events:auto;
+    filter: blur(0.4px);
+  }
+  .leaf-strip{
+    position:absolute; top:0; bottom:0;
+    transform-style: preserve-3d;
+    transform-origin: 0% 50%;
+    overflow:hidden;
+  }
+  .leaf-strip-inner{
+    position:absolute; top:0; bottom:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    backface-visibility:hidden;
+  }
+  .leaf-strip-front{ background: var(--page); }
+  .leaf-strip-back{
+    background: linear-gradient(100deg, #FAF8F3 0%, #F1ECE0 100%);
+    transform: rotateY(180deg);
+  }
+  .leaf-strip-shade{
+    position:absolute; inset:0; pointer-events:none;
+    background: rgba(40,35,25,0);
+    transition: background 0.05s linear;
+  }
+
+  .stage-caption{
+    margin-top:24px;
+    font-size:14px; font-style:italic; color:#9b9484; letter-spacing:0.4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="book-wrap" id="bookWrap">
+
+    <div class="pages-base" id="pagesBase">
+      <div class="page-content" id="currentPage">
+        <div class="page-week" id="currentWeekLabel">Week One</div>
+        <div class="page-idea" id="currentIdeaText">Loading…</div>
+        <div class="page-divider"></div>
+        <div class="page-footer">
+          <button class="choose-link" id="chooseBtn">this is the one</button>
+          <button class="skip-link" id="skipBtn">show me another</button>
+          <div class="page-number" id="pageNumber"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- the turning page, built from strips at runtime for a curved turn -->
+    <div class="leaf" id="leaf"></div>
+    <div id="leafContentTemplate" style="display:none;">
+      <div class="page-week" id="leafWeekLabel">Week One</div>
+      <div class="page-idea" id="leafIdeaText"></div>
+      <div class="page-divider"></div>
+    </div>
+
+    <div class="cover" id="cover">
+      <div class="cover-spine-line"></div>
+      <div class="cover-title">Little Gestures,<br>Lasting Love</div>
+      <div class="cover-year">their year</div>
+    </div>
+  </div>
+
+  <div class="stage-caption" id="stageCaption">a quiet beginning</div>
+</div>
+
+<audio id="pageSound" preload="auto">
+  <source src="https://actions.google.com/sounds/v1/foley/paper_page_flip.ogg" type="audio/ogg">
+</audio>
+
+<script>
+const IDEAS = [
+  "Buy her a book she'd love at a local bookstore, no reason needed.",
+  "Leave a handwritten note in her bag before she leaves the house.",
+  "Cook her favorite meal from childhood, without being asked.",
+  "Run her a bath with candles and her favorite music.",
+  "Plan a surprise picnic at a park or by the water.",
+  "Write down ten reasons you love her and put them in a jar."
+];
+const TOTAL_WEEKS = 52;
+
+let pool = IDEAS.map((text, i) => ({ id: i, text }));
+let usedCount = 0;
+let currentIdea = null;
+let isAnimating = false;
+
+const cover = document.getElementById('cover');
+const currentWeekLabel = document.getElementById('currentWeekLabel');
+const currentIdeaText = document.getElementById('currentIdeaText');
+const leaf = document.getElementById('leaf');
+const pageNumber = document.getElementById('pageNumber');
+const skipBtn = document.getElementById('skipBtn');
+const chooseBtn = document.getElementById('chooseBtn');
+const pageSound = document.getElementById('pageSound');
+const stageCaption = document.getElementById('stageCaption');
+const bookWrap = document.getElementById('bookWrap');
+
+const STRIP_COUNT = 24;
+
+const ORDINALS = ["One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
+  "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen","Twenty"];
+function ordinalWeek(n){ return ORDINALS[n-1] || n; }
+
+function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function showCurrent(idea, weekNum){
+  currentWeekLabel.textContent = `Week ${ordinalWeek(weekNum)}`;
+  currentIdeaText.textContent = idea.text;
+  pageNumber.textContent = `${weekNum} of ${TOTAL_WEEKS}`;
+}
+
+function playPageSound(){
+  try{ pageSound.currentTime = 0; pageSound.volume = 0.55; pageSound.play().catch(()=>{}); }catch(e){}
+}
+
+/* Build the leaf out of vertical strips. Each strip shows a slice of the
+   same content (via a full-width inner element offset left), so visually
+   it reads as one continuous page even though it is sliced underneath. */
+function buildLeafStrips(weekText, ideaText){
+  leaf.innerHTML = '';
+  const w = bookWrap.clientWidth;
+  const h = bookWrap.clientHeight;
+  const stripWidth = w / STRIP_COUNT;
+  const overlap = 2.2; // px of overlap between adjacent strips to hide seams during rotation
+
+  for(let i = 0; i < STRIP_COUNT; i++){
+    const strip = document.createElement('div');
+    strip.className = 'leaf-strip';
+    strip.style.left = (i * stripWidth - overlap) + 'px';
+    strip.style.width = (stripWidth + overlap * 2) + 'px';
+    strip.style.height = h + 'px';
+    strip.style.transformOrigin = `${-(i * stripWidth - overlap)}px 50%`;
+
+    const front = document.createElement('div');
+    front.className = 'leaf-strip-inner leaf-strip-front';
+    front.style.left = (-(i * stripWidth - overlap)) + 'px';
+    front.style.width = w + 'px';
+    front.style.height = h + 'px';
+    front.style.padding = '50px 40px';
+    front.innerHTML = `
+      <div class="page-week">${weekText}</div>
+      <div class="page-idea">${ideaText}</div>
+      <div class="page-divider"></div>
+    `;
+
+    const back = document.createElement('div');
+    back.className = 'leaf-strip-inner leaf-strip-back';
+    back.style.left = (-(i * stripWidth - overlap)) + 'px';
+    back.style.width = w + 'px';
+    back.style.height = h + 'px';
+
+    const shade = document.createElement('div');
+    shade.className = 'leaf-strip-shade';
+
+    strip.appendChild(front);
+    strip.appendChild(back);
+    strip.appendChild(shade);
+    leaf.appendChild(strip);
+  }
+}
+
+/* Animate the strips through a curved turn using requestAnimationFrame.
+   Each strip's rotation lags slightly behind the one before it (a simple
+   stagger plus an eased curve), which makes the page appear to bow outward
+   instead of swinging as one flat rigid plane. */
+function animateLeafTurn(durationMs, onDone){
+  const strips = Array.from(leaf.querySelectorAll('.leaf-strip'));
+  const start = performance.now();
+
+  function frame(now){
+    const elapsed = now - start;
+    const t = Math.min(1, elapsed / durationMs); // overall progress 0..1
+
+    strips.forEach((strip, i) => {
+      // each strip's progress is offset slightly so the curve sweeps across
+      const stagger = i / STRIP_COUNT * 0.18;
+      const localT = Math.max(0, Math.min(1, (t - stagger) / (1 - 0.18)));
+      // ease for a natural acceleration/deceleration
+      const eased = localT < 0.5
+        ? 2 * localT * localT
+        : 1 - Math.pow(-2 * localT + 2, 2) / 2;
+      const angle = eased * 178;
+      strip.style.transform = `rotateY(${-angle}deg)`;
+
+      // shading deepens as each strip turns, then lightens once past 90deg (showing the back)
+      const shadeEl = strip.querySelector('.leaf-strip-shade');
+      const shadeAmount = Math.sin(eased * Math.PI) * 0.35;
+      shadeEl.style.background = `rgba(40,35,25,${shadeAmount})`;
+    });
+
+    if(t < 1){
+      requestAnimationFrame(frame);
+    } else {
+      onDone && onDone();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function revealNext(skippingId){
+  if(isAnimating) return;
+  if(pool.length === 0){
+    currentWeekLabel.textContent = "The End, For Now";
+    currentIdeaText.textContent = "That's all six for this preview. The real book holds fifty-two — one for every week of the year ahead.";
+    skipBtn.style.display = 'none';
+    chooseBtn.style.display = 'none';
+    stageCaption.textContent = "a year, completed";
+    return;
+  }
+  isAnimating = true;
+  skipBtn.disabled = true;
+
+  let choices = pool;
+  if(skippingId !== undefined && pool.length > 1){
+    choices = pool.filter(p => p.id !== skippingId);
+  }
+  const next = pickRandom(choices.length ? choices : pool);
+
+  // build the leaf out of strips showing the OLD (current) content, then animate the turn
+  const oldWeekText = currentWeekLabel.textContent;
+  const oldIdeaText = currentIdeaText.textContent;
+  buildLeafStrips(oldWeekText, oldIdeaText);
+  leaf.classList.add('turning');
+
+  // update the base page underneath to the NEW content (revealed as the leaf turns away)
+  pool = pool.filter(p => p.id !== next.id);
+  if(skippingId !== undefined){
+    const skipped = IDEAS_BY_ID(skippingId);
+    if(skipped) pool.push(skipped);
+  } else {
+    usedCount++;
+  }
+  showCurrent(next, usedCount + 1);
+  currentIdea = next;
+  stageCaption.textContent = "still deciding";
+
+  playPageSound();
+  animateLeafTurn(1300, () => {
+    leaf.classList.remove('turning');
+    leaf.innerHTML = '';
+    isAnimating = false;
+    skipBtn.disabled = false;
+  });
+}
+
+function IDEAS_BY_ID(id){
+  const text = IDEAS[id];
+  return text ? { id, text } : null;
+}
+
+cover.addEventListener('click', () => {
+  if(cover.classList.contains('opened')) return;
+  cover.classList.add('opened');
+  playPageSound();
+  setTimeout(() => {
+    const first = pickRandom(pool);
+    pool = pool.filter(p => p.id !== first.id);
+    usedCount = 0;
+    currentIdea = first;
+    showCurrent(first, 1);
+    stageCaption.textContent = "still deciding";
+  }, 550);
+});
+
+skipBtn.addEventListener('click', () => {
+  if(!currentIdea) return;
+  revealNext(currentIdea.id);
+});
+
+chooseBtn.addEventListener('click', () => {
+  if(!currentIdea) return;
+  chooseBtn.textContent = "chosen ✓";
+  chooseBtn.disabled = true;
+  skipBtn.style.display = 'none';
+  stageCaption.textContent = "go make it happen";
+});
+</script>
+
+</body>
+</html>
