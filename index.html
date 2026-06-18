@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +7,7 @@
 <title>Little Gestures, Lasting Love</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root{
     --linen:#E4E0D8;
@@ -164,6 +166,95 @@
     margin-top:24px;
     font-size:14px; font-style:italic; color:#9b9484; letter-spacing:0.4px;
   }
+
+  /* ===== UPLOAD SCREEN — shown after "this is the one" ===== */
+  .upload-screen{
+    position:absolute; inset:0; border-radius:2px;
+    background: var(--page);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:44px 36px; text-align:center;
+    z-index:22; opacity:0; pointer-events:none;
+    transition: opacity 0.5s ease;
+  }
+  .upload-screen.visible{ opacity:1; pointer-events:auto; }
+  .upload-week{
+    font-size:13px; color:var(--ink-soft); letter-spacing:3px; text-transform:uppercase;
+    opacity:0.7; margin-bottom:10px;
+  }
+  .upload-idea{
+    font-size:17px; line-height:1.7; color:var(--ink-soft); font-weight:500;
+    letter-spacing:1.5px; max-width:340px; margin-bottom:22px;
+  }
+  .photo-picker{
+    width:100%; max-width:280px; height:160px; border-radius:4px;
+    border:1.5px dashed rgba(107,102,88,0.35);
+    background:rgba(228,224,216,0.25);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    cursor:pointer; transition:border-color 0.2s, background 0.2s;
+    overflow:hidden; position:relative; margin-bottom:18px;
+  }
+  .photo-picker:hover{ border-color:var(--rose); background:rgba(228,224,216,0.4); }
+  .photo-picker img{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  }
+  .photo-picker-label{
+    font-size:13px; color:var(--ink-soft); letter-spacing:0.5px; font-style:italic;
+  }
+  .photo-picker input[type=file]{
+    position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;
+  }
+  .note-field{
+    width:100%; max-width:280px; min-height:64px; resize:none;
+    border:1px solid rgba(107,102,88,0.25); border-radius:4px;
+    background:rgba(255,255,255,0.6);
+    font-family:'Cormorant Garamond', serif; font-size:15px; color:var(--ink);
+    padding:12px 14px; margin-bottom:20px; line-height:1.5;
+    transition:border-color 0.2s;
+  }
+  .note-field:focus{ outline:none; border-color:var(--rose); }
+  .note-field::placeholder{ color:#b3a99a; font-style:italic; }
+  .submit-week{
+    font-size:13px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg, var(--gold) 0%, #97794F 100%);
+    border:none; cursor:pointer; border-radius:2px;
+    padding:12px 32px; transition: opacity 0.2s, transform 0.15s;
+    box-shadow:0 3px 10px rgba(151,121,79,0.35);
+  }
+  .submit-week:hover{ opacity:0.92; transform:translateY(-1px); }
+  .submit-week:disabled{ opacity:0.5; cursor:default; transform:none; }
+  .upload-status{
+    font-size:13px; font-style:italic; color:#9b9484; margin-top:14px; min-height:18px;
+  }
+  .upload-status.error{ color:#a8635a; }
+
+  /* ===== COMPLETED WEEK STATE ===== */
+  .completed-screen{
+    position:absolute; inset:0; border-radius:2px;
+    background: var(--page);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:44px 36px; text-align:center;
+    z-index:22; opacity:0; pointer-events:none;
+    transition: opacity 0.5s ease;
+  }
+  .completed-screen.visible{ opacity:1; pointer-events:auto; }
+  .completed-mark{
+    font-size:13px; color:var(--gold); letter-spacing:3px; text-transform:uppercase;
+    margin-bottom:18px;
+  }
+  .completed-message{
+    font-size:16px; line-height:1.8; color:var(--ink-soft); letter-spacing:0.5px;
+    max-width:300px;
+  }
+
+  /* ===== LOADING STATE ===== */
+  .book-loading{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    z-index:30; background:var(--page);
+  }
+  .book-loading.visible{ display:flex; }
+  .book-loading-text{
+    font-size:14px; font-style:italic; color:#9b9484; letter-spacing:0.5px;
+  }
 </style>
 </head>
 <body>
@@ -192,10 +283,33 @@
       <div class="page-divider"></div>
     </div>
 
+    <!-- shown after "this is the one" -->
+    <div class="upload-screen" id="uploadScreen">
+      <div class="upload-week" id="uploadWeekLabel">Week One</div>
+      <div class="upload-idea" id="uploadIdeaText"></div>
+      <label class="photo-picker" id="photoPicker">
+        <span class="photo-picker-label" id="photoPickerLabel">tap to add a photo</span>
+        <input type="file" accept="image/*" id="photoInput">
+      </label>
+      <textarea class="note-field" id="noteField" placeholder="how did it go? (optional)" maxlength="280"></textarea>
+      <button class="submit-week" id="submitWeekBtn">save this week</button>
+      <div class="upload-status" id="uploadStatus"></div>
+    </div>
+
+    <!-- shown briefly after a successful save, before the next week unlocks -->
+    <div class="completed-screen" id="completedScreen">
+      <div class="completed-mark">saved ✓</div>
+      <div class="completed-message">This week is tucked away. Come back next week for another small thing.</div>
+    </div>
+
     <div class="cover" id="cover">
       <div class="cover-spine-line"></div>
       <div class="cover-title">Little Gestures,<br>Lasting Love</div>
       <div class="cover-year">their year</div>
+    </div>
+
+    <div class="book-loading" id="bookLoading">
+      <div class="book-loading-text">opening the book…</div>
     </div>
   </div>
 
@@ -207,20 +321,24 @@
 </audio>
 
 <script>
-const IDEAS = [
-  "Buy her a book she'd love at a local bookstore, no reason needed.",
-  "Leave a handwritten note in her bag before she leaves the house.",
-  "Cook her favorite meal from childhood, without being asked.",
-  "Run her a bath with candles and her favorite music.",
-  "Plan a surprise picnic at a park or by the water.",
-  "Write down ten reasons you love her and put them in a jar."
-];
-const TOTAL_WEEKS = 52;
+// ---------- Supabase connection ----------
+const SUPABASE_URL = 'https://eioxaevenecdemlaonpv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7xzTkqN6RhQmLQV5sPj8HQ_dwyvdWas';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let pool = IDEAS.map((text, i) => ({ id: i, text }));
-let usedCount = 0;
+// the access token comes from the link he was sent, e.g. ?key=xxxxx
+const urlParams = new URLSearchParams(window.location.search);
+const ACCESS_TOKEN = urlParams.get('key') || '';
+
+const TOTAL_WEEKS = 52;
+const STRIP_COUNT = 24;
+
+let weeksData = [];       // all 52 rows from the `weeks` table
+let ideaPool = [];        // unused ideas from `idea_pool`
+let currentWeekRow = null;
 let currentIdea = null;
 let isAnimating = false;
+let selectedPhotoFile = null;
 
 const cover = document.getElementById('cover');
 const currentWeekLabel = document.getElementById('currentWeekLabel');
@@ -232,8 +350,17 @@ const chooseBtn = document.getElementById('chooseBtn');
 const pageSound = document.getElementById('pageSound');
 const stageCaption = document.getElementById('stageCaption');
 const bookWrap = document.getElementById('bookWrap');
-
-const STRIP_COUNT = 24;
+const bookLoading = document.getElementById('bookLoading');
+const uploadScreen = document.getElementById('uploadScreen');
+const uploadWeekLabel = document.getElementById('uploadWeekLabel');
+const uploadIdeaText = document.getElementById('uploadIdeaText');
+const photoPicker = document.getElementById('photoPicker');
+const photoPickerLabel = document.getElementById('photoPickerLabel');
+const photoInput = document.getElementById('photoInput');
+const noteField = document.getElementById('noteField');
+const submitWeekBtn = document.getElementById('submitWeekBtn');
+const uploadStatus = document.getElementById('uploadStatus');
+const completedScreen = document.getElementById('completedScreen');
 
 const ORDINALS = ["One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
   "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen","Twenty"];
@@ -241,14 +368,61 @@ function ordinalWeek(n){ return ORDINALS[n-1] || n; }
 
 function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
-function showCurrent(idea, weekNum){
-  currentWeekLabel.textContent = `Week ${ordinalWeek(weekNum)}`;
-  currentIdeaText.textContent = idea.text;
-  pageNumber.textContent = `${weekNum} of ${TOTAL_WEEKS}`;
-}
-
 function playPageSound(){
   try{ pageSound.currentTime = 0; pageSound.volume = 0.55; pageSound.play().catch(()=>{}); }catch(e){}
+}
+
+// ---------- Loading state from Supabase ----------
+async function loadBookState(){
+  if(!ACCESS_TOKEN){
+    bookLoading.querySelector('.book-loading-text').textContent =
+      "this link is missing its key — please use the link exactly as it was sent";
+    return false;
+  }
+  try{
+    const [weeksRes, poolRes] = await Promise.all([
+      supabaseClient.rpc('get_weeks', { token: ACCESS_TOKEN }),
+      supabaseClient.rpc('get_idea_pool', { token: ACCESS_TOKEN })
+    ]);
+    if(weeksRes.error) throw weeksRes.error;
+    if(poolRes.error) throw poolRes.error;
+
+    weeksData = weeksRes.data || [];
+    ideaPool = (poolRes.data || []).filter(p => !p.used);
+    return true;
+  } catch(err){
+    console.error('Failed to load book state', err);
+    bookLoading.querySelector('.book-loading-text').textContent =
+      "couldn't open the book just now — check your connection and reload";
+    return false;
+  }
+}
+
+function findCurrentWeek(){
+  // the first week that isn't completed yet is "now"
+  return weeksData.find(w => w.status !== 'completed') || null;
+}
+
+function showCurrent(weekRow){
+  currentWeekRow = weekRow;
+  currentWeekLabel.textContent = `Week ${ordinalWeek(weekRow.week_number)}`;
+  pageNumber.textContent = `${weekRow.week_number} of ${TOTAL_WEEKS}`;
+
+  if(weekRow.status === 'chosen' && weekRow.idea_text){
+    // he already picked an idea for this week in an earlier visit;
+    // skip straight to letting him upload, rather than re-offering choices
+    currentIdeaText.textContent = weekRow.idea_text;
+    currentIdea = { id: null, text: weekRow.idea_text };
+    showUploadScreenFor(weekRow);
+  } else {
+    const next = pickRandom(ideaPool);
+    currentIdeaText.textContent = next ? next.idea_text : "—";
+    currentIdea = next ? { id: next.id, text: next.idea_text } : null;
+    skipBtn.style.display = '';
+    chooseBtn.style.display = '';
+    chooseBtn.disabled = false;
+    chooseBtn.textContent = 'this is the one';
+  }
 }
 
 /* Build the leaf out of vertical strips. Each strip shows a slice of the
@@ -259,7 +433,7 @@ function buildLeafStrips(weekText, ideaText){
   const w = bookWrap.clientWidth;
   const h = bookWrap.clientHeight;
   const stripWidth = w / STRIP_COUNT;
-  const overlap = 2.2; // px of overlap between adjacent strips to hide seams during rotation
+  const overlap = 2.2;
 
   for(let i = 0; i < STRIP_COUNT; i++){
     const strip = document.createElement('div');
@@ -297,30 +471,23 @@ function buildLeafStrips(weekText, ideaText){
   }
 }
 
-/* Animate the strips through a curved turn using requestAnimationFrame.
-   Each strip's rotation lags slightly behind the one before it (a simple
-   stagger plus an eased curve), which makes the page appear to bow outward
-   instead of swinging as one flat rigid plane. */
 function animateLeafTurn(durationMs, onDone){
   const strips = Array.from(leaf.querySelectorAll('.leaf-strip'));
   const start = performance.now();
 
   function frame(now){
     const elapsed = now - start;
-    const t = Math.min(1, elapsed / durationMs); // overall progress 0..1
+    const t = Math.min(1, elapsed / durationMs);
 
     strips.forEach((strip, i) => {
-      // each strip's progress is offset slightly so the curve sweeps across
       const stagger = i / STRIP_COUNT * 0.18;
       const localT = Math.max(0, Math.min(1, (t - stagger) / (1 - 0.18)));
-      // ease for a natural acceleration/deceleration
       const eased = localT < 0.5
         ? 2 * localT * localT
         : 1 - Math.pow(-2 * localT + 2, 2) / 2;
       const angle = eased * 178;
       strip.style.transform = `rotateY(${-angle}deg)`;
 
-      // shading deepens as each strip turns, then lightens once past 90deg (showing the back)
       const shadeEl = strip.querySelector('.leaf-strip-shade');
       const shadeAmount = Math.sin(eased * Math.PI) * 0.35;
       shadeEl.style.background = `rgba(40,35,25,${shadeAmount})`;
@@ -335,41 +502,25 @@ function animateLeafTurn(durationMs, onDone){
   requestAnimationFrame(frame);
 }
 
-function revealNext(skippingId){
-  if(isAnimating) return;
-  if(pool.length === 0){
-    currentWeekLabel.textContent = "The End, For Now";
-    currentIdeaText.textContent = "That's all six for this preview. The real book holds fifty-two — one for every week of the year ahead.";
-    skipBtn.style.display = 'none';
-    chooseBtn.style.display = 'none';
-    stageCaption.textContent = "a year, completed";
-    return;
-  }
+function revealNext(skippedIdea){
+  if(isAnimating || !currentWeekRow) return;
   isAnimating = true;
   skipBtn.disabled = true;
 
-  let choices = pool;
-  if(skippingId !== undefined && pool.length > 1){
-    choices = pool.filter(p => p.id !== skippingId);
+  let choices = ideaPool;
+  if(skippedIdea && ideaPool.length > 1){
+    choices = ideaPool.filter(p => p.id !== skippedIdea.id);
   }
-  const next = pickRandom(choices.length ? choices : pool);
+  const next = pickRandom(choices.length ? choices : ideaPool);
+  if(!next){ isAnimating = false; skipBtn.disabled = false; return; }
 
-  // build the leaf out of strips showing the OLD (current) content, then animate the turn
   const oldWeekText = currentWeekLabel.textContent;
   const oldIdeaText = currentIdeaText.textContent;
   buildLeafStrips(oldWeekText, oldIdeaText);
   leaf.classList.add('turning');
 
-  // update the base page underneath to the NEW content (revealed as the leaf turns away)
-  pool = pool.filter(p => p.id !== next.id);
-  if(skippingId !== undefined){
-    const skipped = IDEAS_BY_ID(skippingId);
-    if(skipped) pool.push(skipped);
-  } else {
-    usedCount++;
-  }
-  showCurrent(next, usedCount + 1);
-  currentIdea = next;
+  currentIdeaText.textContent = next.idea_text;
+  currentIdea = { id: next.id, text: next.idea_text };
   stageCaption.textContent = "still deciding";
 
   playPageSound();
@@ -379,38 +530,164 @@ function revealNext(skippingId){
     isAnimating = false;
     skipBtn.disabled = false;
   });
+
+  // tell the database this idea is back in the pool to skip (fire and forget;
+  // the UI has already moved on, this just keeps the server in sync)
+  if(skippedIdea){
+    supabaseClient.rpc('skip_week_idea', { token: ACCESS_TOKEN, p_idea_id: skippedIdea.id })
+      .then(({ error }) => { if(error) console.error('skip_week_idea failed', error); });
+  }
 }
 
-function IDEAS_BY_ID(id){
-  const text = IDEAS[id];
-  return text ? { id, text } : null;
+function showUploadScreenFor(weekRow){
+  uploadWeekLabel.textContent = `Week ${ordinalWeek(weekRow.week_number)}`;
+  uploadIdeaText.textContent = weekRow.idea_text;
+  uploadScreen.classList.add('visible');
+  stageCaption.textContent = "go make it happen, then come back here";
 }
 
-cover.addEventListener('click', () => {
+function resetUploadForm(){
+  selectedPhotoFile = null;
+  photoInput.value = '';
+  photoPickerLabel.style.display = '';
+  photoPickerLabel.textContent = 'tap to add a photo';
+  const existingImg = photoPicker.querySelector('img');
+  if(existingImg) existingImg.remove();
+  noteField.value = '';
+  uploadStatus.textContent = '';
+  uploadStatus.classList.remove('error');
+  submitWeekBtn.disabled = false;
+  submitWeekBtn.textContent = 'save this week';
+}
+
+photoInput.addEventListener('change', () => {
+  const file = photoInput.files && photoInput.files[0];
+  if(!file) return;
+  selectedPhotoFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let img = photoPicker.querySelector('img');
+    if(!img){
+      img = document.createElement('img');
+      photoPicker.insertBefore(img, photoInput);
+    }
+    img.src = e.target.result;
+    photoPickerLabel.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+});
+
+submitWeekBtn.addEventListener('click', async () => {
+  if(!currentWeekRow) return;
+  submitWeekBtn.disabled = true;
+  submitWeekBtn.textContent = 'saving…';
+  uploadStatus.classList.remove('error');
+  uploadStatus.textContent = '';
+
+  try{
+    let photoPath = null;
+    if(selectedPhotoFile){
+      const ext = (selectedPhotoFile.name.split('.').pop() || 'jpg').toLowerCase();
+      photoPath = `${ACCESS_TOKEN}/week-${String(currentWeekRow.week_number).padStart(2,'0')}.${ext}`;
+      const { error: uploadError } = await supabaseClient.storage
+        .from('week-photos')
+        .upload(photoPath, selectedPhotoFile, { upsert: true, contentType: selectedPhotoFile.type });
+      if(uploadError) throw uploadError;
+    }
+
+    const { error: rpcError } = await supabaseClient.rpc('complete_week', {
+      token: ACCESS_TOKEN,
+      p_week_number: currentWeekRow.week_number,
+      p_photo_path: photoPath,
+      p_note: noteField.value.trim() || null
+    });
+    if(rpcError) throw rpcError;
+
+    uploadScreen.classList.remove('visible');
+    completedScreen.classList.add('visible');
+    stageCaption.textContent = "see you next week";
+
+    // advance local state so the page reflects the new "current" week
+    currentWeekRow.status = 'completed';
+    const next = findCurrentWeek();
+    setTimeout(() => {
+      completedScreen.classList.remove('visible');
+      resetUploadForm();
+      if(next){
+        showCurrent(next);
+        stageCaption.textContent = next.status === 'chosen' ? "go make it happen, then come back here" : "still deciding";
+      } else {
+        currentWeekLabel.textContent = "The End";
+        currentIdeaText.textContent = "All fifty-two weeks are complete. What a year.";
+        skipBtn.style.display = 'none';
+        chooseBtn.style.display = 'none';
+        stageCaption.textContent = "a year, completed";
+      }
+    }, 2600);
+
+  } catch(err){
+    console.error('Failed to save week', err);
+    uploadStatus.textContent = "that didn't save — check your connection and try again";
+    uploadStatus.classList.add('error');
+    submitWeekBtn.disabled = false;
+    submitWeekBtn.textContent = 'save this week';
+  }
+});
+
+cover.addEventListener('click', async () => {
   if(cover.classList.contains('opened')) return;
   cover.classList.add('opened');
   playPageSound();
+  bookLoading.classList.add('visible');
+
+  const ok = await loadBookState();
+  if(!ok) return; // error message already shown inside loadBookState
+
   setTimeout(() => {
-    const first = pickRandom(pool);
-    pool = pool.filter(p => p.id !== first.id);
-    usedCount = 0;
-    currentIdea = first;
-    showCurrent(first, 1);
-    stageCaption.textContent = "still deciding";
+    bookLoading.classList.remove('visible');
+    const current = findCurrentWeek();
+    if(current){
+      showCurrent(current);
+      stageCaption.textContent = current.status === 'chosen' ? "go make it happen, then come back here" : "still deciding";
+    } else {
+      currentWeekLabel.textContent = "The End";
+      currentIdeaText.textContent = "All fifty-two weeks are complete. What a year.";
+      skipBtn.style.display = 'none';
+      chooseBtn.style.display = 'none';
+      stageCaption.textContent = "a year, completed";
+    }
   }, 550);
 });
 
 skipBtn.addEventListener('click', () => {
   if(!currentIdea) return;
-  revealNext(currentIdea.id);
+  revealNext(currentIdea);
 });
 
-chooseBtn.addEventListener('click', () => {
-  if(!currentIdea) return;
-  chooseBtn.textContent = "chosen ✓";
+chooseBtn.addEventListener('click', async () => {
+  if(!currentIdea || !currentWeekRow) return;
   chooseBtn.disabled = true;
-  skipBtn.style.display = 'none';
-  stageCaption.textContent = "go make it happen";
+  chooseBtn.textContent = "saving…";
+  try{
+    const { error } = await supabaseClient.rpc('choose_week_idea', {
+      token: ACCESS_TOKEN,
+      p_week_number: currentWeekRow.week_number,
+      p_idea_id: currentIdea.id,
+      p_idea_text: currentIdea.text
+    });
+    if(error) throw error;
+
+    currentWeekRow.status = 'chosen';
+    currentWeekRow.idea_text = currentIdea.text;
+    skipBtn.style.display = 'none';
+    chooseBtn.style.display = 'none';
+    showUploadScreenFor(currentWeekRow);
+  } catch(err){
+    console.error('Failed to save choice', err);
+    chooseBtn.disabled = false;
+    chooseBtn.textContent = "this is the one";
+    stageCaption.textContent = "that didn't save — try again";
+  }
 });
 </script>
 
