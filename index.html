@@ -255,6 +255,89 @@
   .book-loading-text{
     font-size:14px; font-style:italic; color:#9b9484; letter-spacing:0.5px;
   }
+
+  /* ===== FINAL ALBUM REVEAL ===== */
+  .album-overlay{
+    position:fixed; inset:0; z-index:100;
+    background:#1a1714;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition: opacity 1.5s ease;
+  }
+  .album-overlay.visible{ opacity:1; pointer-events:auto; }
+
+  .album-slide{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0; transition: opacity 1.2s ease;
+    padding: 0 24px 80px;
+  }
+  .album-slide.active{ opacity:1; }
+
+  .album-photo{
+    width:100%; max-width:480px; max-height:55vh;
+    object-fit:cover; border-radius:3px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    margin-bottom:24px;
+  }
+  .album-photo-placeholder{
+    width:100%; max-width:480px; height:200px;
+    background:rgba(255,255,255,0.06); border-radius:3px;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:24px;
+    font-size:13px; color:rgba(255,255,255,0.3); font-style:italic;
+  }
+  .album-week-label{
+    font-size:11px; letter-spacing:3px; text-transform:uppercase;
+    color:rgba(255,255,255,0.4); margin-bottom:10px;
+  }
+  .album-idea{
+    font-size:18px; line-height:1.7; color:rgba(255,255,255,0.85);
+    text-align:center; max-width:400px; letter-spacing:0.5px;
+    margin-bottom:10px;
+  }
+  .album-note{
+    font-size:14px; font-style:italic; color:rgba(255,255,255,0.5);
+    text-align:center; max-width:360px; line-height:1.6;
+  }
+
+  .album-nav{
+    position:fixed; bottom:32px; left:0; right:0;
+    display:flex; align-items:center; justify-content:center; gap:32px;
+    z-index:101;
+  }
+  .album-nav-btn{
+    background:none; border:1px solid rgba(255,255,255,0.2);
+    color:rgba(255,255,255,0.6); font-family:'Cormorant Garamond',serif;
+    font-size:13px; letter-spacing:1.5px; text-transform:uppercase;
+    padding:10px 24px; cursor:pointer; border-radius:2px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .album-nav-btn:hover{ border-color:rgba(255,255,255,0.5); color:rgba(255,255,255,0.9); }
+  .album-nav-btn:disabled{ opacity:0.2; cursor:default; }
+  .album-counter{
+    font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:1px;
+    min-width:60px; text-align:center;
+  }
+
+  .album-opening{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:40px;
+    background:#1a1714;
+    z-index:10;
+    cursor:pointer;
+    opacity:1; transition: opacity 1s ease;
+  }
+  .album-opening.hidden{ opacity:0; pointer-events:none; z-index:-1; }
+  .album-opening-title{
+    font-size:28px; color:rgba(255,255,255,0.9); letter-spacing:1px;
+    line-height:1.5; margin-bottom:16px;
+  }
+  .album-opening-sub{
+    font-size:15px; color:rgba(255,255,255,0.45); font-style:italic;
+    letter-spacing:0.5px;
+  }
 </style>
 </head>
 <body>
@@ -617,11 +700,8 @@ submitWeekBtn.addEventListener('click', async () => {
         showCurrent(next);
         stageCaption.textContent = next.status === 'chosen' ? "go make it happen, then come back here" : "still deciding";
       } else {
-        currentWeekLabel.textContent = "The End";
-        currentIdeaText.textContent = "All fifty-two weeks are complete. What a year.";
-        skipBtn.style.display = 'none';
-        chooseBtn.style.display = 'none';
-        stageCaption.textContent = "a year, completed";
+        // all 52 weeks complete — open the final album
+        setTimeout(() => openAlbum(), 800);
       }
     }, 2600);
 
@@ -650,11 +730,8 @@ cover.addEventListener('click', async () => {
       showCurrent(current);
       stageCaption.textContent = current.status === 'chosen' ? "go make it happen, then come back here" : "still deciding";
     } else {
-      currentWeekLabel.textContent = "The End";
-      currentIdeaText.textContent = "All fifty-two weeks are complete. What a year.";
-      skipBtn.style.display = 'none';
-      chooseBtn.style.display = 'none';
-      stageCaption.textContent = "a year, completed";
+      // all 52 weeks complete — open the final album
+      setTimeout(() => openAlbum(), 800);
     }
   }, 550);
 });
@@ -689,6 +766,121 @@ chooseBtn.addEventListener('click', async () => {
     stageCaption.textContent = "that didn't save — try again";
   }
 });
+</script>
+
+<!-- ===== FINAL ALBUM OVERLAY ===== -->
+<div class="album-overlay" id="albumOverlay">
+
+  <!-- direct MP3 — no YouTube, no iframe, plays reliably on tap -->
+  <audio id="albumMusic" loop preload="none" style="display:none;">
+    <source src="https://assets.mixkit.co/music/preview/mixkit-lounging-by-moonlight-40.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- opening title card — tap anywhere to begin -->
+  <div class="album-opening" id="albumOpening">
+    <div class="album-opening-title">A year of small things.<br>All of them, yours.</div>
+    <div class="album-opening-sub">52 weeks. 52 moments.</div>
+    <div style="margin-top:36px; font-size:12px; letter-spacing:3px; text-transform:uppercase; color:rgba(255,255,255,0.3);">tap anywhere to begin</div>
+  </div>
+
+  <!-- slides injected here by JS, hidden until tap -->
+  <div id="albumSlides" style="display:none;"></div>
+
+  <!-- navigation, hidden until tap -->
+  <div class="album-nav" id="albumNav" style="display:none;">
+    <button class="album-nav-btn" id="albumPrev">← prev</button>
+    <div class="album-counter" id="albumCounter"></div>
+    <button class="album-nav-btn" id="albumNext">next →</button>
+  </div>
+</div>
+
+<script>
+// ===== ALBUM REVEAL LOGIC =====
+const albumOverlay = document.getElementById('albumOverlay');
+const albumOpening = document.getElementById('albumOpening');
+const albumSlides  = document.getElementById('albumSlides');
+const albumNav     = document.getElementById('albumNav');
+const albumPrev    = document.getElementById('albumPrev');
+const albumNext    = document.getElementById('albumNext');
+const albumCounter = document.getElementById('albumCounter');
+const albumMusic   = document.getElementById('albumMusic');
+
+let albumData    = [];
+let albumCurrent = 0;
+
+async function openAlbum(){
+  const { data: weeks, error } = await supabaseClient.rpc('get_weeks', { token: ACCESS_TOKEN });
+  if(error){ console.error('album load failed', error); return; }
+
+  const completed = (weeks || []).filter(w => w.status === 'completed');
+
+  albumData = await Promise.all(completed.map(async (week) => {
+    let photoUrl = null;
+    if(week.photo_path){
+      try{
+        const { data: urlData, error: urlError } = await supabaseClient.storage
+          .from('week-photos')
+          .createSignedUrl(week.photo_path, 60 * 60);
+        if(!urlError && urlData) photoUrl = urlData.signedUrl;
+      } catch(e){ console.error('signed URL failed', e); }
+    }
+    return {
+      week_number: week.week_number,
+      idea_text:   week.idea_text,
+      note:        week.note,
+      photoUrl
+    };
+  }));
+
+  albumSlides.innerHTML = '';
+  albumData.forEach((item, idx) => {
+    const slide = document.createElement('div');
+    slide.className = 'album-slide' + (idx === 0 ? ' active' : '');
+    slide.innerHTML = `
+      ${item.photoUrl
+        ? `<img class="album-photo" src="${item.photoUrl}" alt="Week ${ordinalWeek(item.week_number)}">`
+        : `<div class="album-photo-placeholder">no photo for this week</div>`}
+      <div class="album-week-label">Week ${ordinalWeek(item.week_number)}</div>
+      <div class="album-idea">${item.idea_text || ''}</div>
+      ${item.note ? `<div class="album-note">${item.note}</div>` : ''}
+    `;
+    albumSlides.appendChild(slide);
+  });
+
+  albumOverlay.classList.add('visible');
+
+  albumOpening.addEventListener('click', function startAlbum(){
+    // play() inside a direct click handler — always allowed by browsers
+    albumMusic.volume = 0.18;
+    albumMusic.play().catch(e => console.error('audio play failed', e));
+
+    albumSlides.style.display = '';
+    albumNav.style.display = 'flex';
+    updateAlbumNav();
+    albumOpening.classList.add('hidden');
+
+    setInterval(() => {
+      if(albumCurrent < albumData.length - 1) goToSlide(albumCurrent + 1);
+    }, 7000);
+  }, { once: true });
+}
+
+function goToSlide(idx){
+  const slides = albumSlides.querySelectorAll('.album-slide');
+  slides[albumCurrent].classList.remove('active');
+  albumCurrent = idx;
+  slides[albumCurrent].classList.add('active');
+  updateAlbumNav();
+}
+
+function updateAlbumNav(){
+  albumCounter.textContent = `${albumCurrent + 1} / ${albumData.length}`;
+  albumPrev.disabled = albumCurrent === 0;
+  albumNext.disabled = albumCurrent === albumData.length - 1;
+}
+
+albumPrev.addEventListener('click', () => { if(albumCurrent > 0) goToSlide(albumCurrent - 1); });
+albumNext.addEventListener('click', () => { if(albumCurrent < albumData.length - 1) goToSlide(albumCurrent + 1); });
 </script>
 
 </body>
