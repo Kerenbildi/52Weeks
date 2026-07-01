@@ -486,10 +486,13 @@ function findCurrentWeek(){
   return weeksData.find(w => w.status !== 'completed') || null;
 }
 
+let seenThisSession = new Set(); // tracks idea IDs shown this visit, reset each week
+
 function showCurrent(weekRow){
   currentWeekRow = weekRow;
   currentWeekLabel.textContent = `Week ${ordinalWeek(weekRow.week_number)}`;
   pageNumber.textContent = `${weekRow.week_number} of ${TOTAL_WEEKS}`;
+  seenThisSession = new Set(); // fresh session for each new week
 
   if(weekRow.status === 'chosen' && weekRow.idea_text){
     // he already picked an idea for this week in an earlier visit;
@@ -501,6 +504,7 @@ function showCurrent(weekRow){
     const next = pickRandom(ideaPool);
     currentIdeaText.textContent = next ? next.idea_text : "—";
     currentIdea = next ? { id: next.id, text: next.idea_text } : null;
+    if(next) seenThisSession.add(next.id);
     skipBtn.style.display = '';
     chooseBtn.style.display = '';
     chooseBtn.disabled = false;
@@ -590,12 +594,18 @@ function revealNext(skippedIdea){
   isAnimating = true;
   skipBtn.disabled = true;
 
-  let choices = ideaPool;
-  if(skippedIdea && ideaPool.length > 1){
-    choices = ideaPool.filter(p => p.id !== skippedIdea.id);
+  // exclude everything already shown this session so nothing repeats
+  if(skippedIdea) seenThisSession.add(skippedIdea.id);
+  let choices = ideaPool.filter(p => !seenThisSession.has(p.id));
+  // if we've seen everything in the pool, reset and start fresh
+  if(choices.length === 0){
+    seenThisSession = new Set();
+    if(skippedIdea) seenThisSession.add(skippedIdea.id);
+    choices = ideaPool.filter(p => !seenThisSession.has(p.id));
   }
   const next = pickRandom(choices.length ? choices : ideaPool);
   if(!next){ isAnimating = false; skipBtn.disabled = false; return; }
+  seenThisSession.add(next.id);
 
   const oldWeekText = currentWeekLabel.textContent;
   const oldIdeaText = currentIdeaText.textContent;
